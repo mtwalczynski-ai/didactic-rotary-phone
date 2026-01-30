@@ -142,3 +142,13 @@ footer {
   padding: 20px;
   color: #666;
 }
+
+.participants-list {
+  margin: 0;
+  padding-left: 1.2em;
+  color: #333;
+
+  /* Ensure bullets are shown despite the global reset */
+  list-style-type: disc;
+  list-style-position: outside;
+}
