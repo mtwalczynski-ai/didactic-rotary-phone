@@ -1,0 +1,368 @@
+"""
+High School Management System API
+
+A super simple FastAPI application that allows students to view and sign up
+for extracurricular activities at Mergington High School.
+"""
+
+from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+import os
+from pathlib import Path
+
+app = FastAPI(title="Mergington High School API",
+              description="API for viewing and signing up for extracurricular activities")
+
+# Mount the static files directory
+current_dir = Path(__file__).parent
+app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
+          "static")), name="static")
+
+# In-memory activity database
+activities = {
+    "Basketball Team": {
+        "description": "Join the school basketball team for training and competitions",
+        "schedule": "Wednesdays and Fridays, 4:00 PM - 6:00 PM",
+        "max_participants": 15,
+        "participants": []
+    },
+    "Soccer Club": {
+        "description": "Participate in soccer practice and matches",
+        "schedule": "Tuesdays and Thursdays, 4:00 PM - 5:30 PM",
+        "max_participants": 18,
+        "participants": []
+    },
+    "Art Club": {
+        "description": "Explore painting, drawing, and other visual arts",
+        "schedule": "Mondays, 3:30 PM - 5:00 PM",
+        "max_participants": 16,
+        "participants": []
+    },
+    "Drama Society": {
+        "description": "Act, direct, and produce school plays and performances",
+        "schedule": "Fridays, 4:00 PM - 6:00 PM",
+        "max_participants": 20,
+        "participants": []
+    },
+    "Math Olympiad": {
+        "description": "Prepare for and participate in math competitions",
+        "schedule": "Thursdays, 3:30 PM - 5:00 PM",
+        "max_participants": 10,
+        "participants": []
+    },
+    "Debate Club": {
+        "description": "Develop public speaking and argumentation skills",
+        "schedule": "Wednesdays, 3:30 PM - 5:00 PM",
+        "max_participants": 14,
+        "participants": []
+    },
+    "Chess Club": {
+        "description": "Learn strategies and compete in chess tournaments",
+        "schedule": "Fridays, 3:30 PM - 5:00 PM",
+        "max_participants": 12,
+        "participants": ["michael@mergington.edu", "daniel@mergington.edu"]
+    },
+    "Programming Class": {
+        "description": "Learn programming fundamentals and build software projects",
+        "schedule": "Tuesdays and Thursdays, 3:30 PM - 4:30 PM",
+        "max_participants": 20,
+        "participants": ["emma@mergington.edu", "sophia@mergington.edu"]
+    },
+    "Gym Class": {
+        "description": "Physical education and sports activities",
+        "schedule": "Mondays, Wednesdays, Fridays, 2:00 PM - 3:00 PM",
+        "max_participants": 30,
+        "participants": ["john@mergington.edu", "olivia@mergington.edu"]
+    }
+}
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/static/index.html")
+
+
+@app.get("/activities")
+def get_activities():
+    return activities
+
+
+@app.post("/activities/{activity_name}/signup")
+def signup_for_activity(activity_name: str, email: str):
+    """Sign up a student for an activity"""
+    # Validate activity exists
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    # Get the specific activity
+    activity = activities[activity_name]
+
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Student {email} is already signed up for {activity_name}"
+        )
+
+    # Add student
+    activity["participants"].append(email)
+    return {"message": f"Signed up {email} for {activity_name}"}
+"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mergington High School Activities</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Extracurricular Activities</h1>
+            <p>Welcome to the Mergington High School extracurricular activities portal. Join us in our various activities and clubs!</p>
+        </header>
+        <main>
+            <div id="activities-container" class="activities-container">
+                <!-- Activity cards will be rendered here -->
+            </div>
+        </main>
+    </div>
+    <script>
+        async function fetchActivities() {
+            const res = await fetch('/activities');
+            return await res.json();
+        }
+
+        function createActivityCard(name, activity) {
+            const card = document.createElement('div');
+            card.className = 'activity-card';
+
+            const title = document.createElement('h2');
+            title.className = 'activity-title';
+            title.textContent = name;
+            card.appendChild(title);
+
+            const description = document.createElement('p');
+            description.className = 'activity-description';
+            description.textContent = activity.description;
+            card.appendChild(description);
+
+            const schedule = document.createElement('p');
+            schedule.className = 'activity-schedule';
+            schedule.textContent = `Schedule: ${activity.schedule}`;
+            card.appendChild(schedule);
+
+            // Participants section
+            const participantsSection = document.createElement('div');
+            participantsSection.className = 'participants-section';
+
+            const participantsTitle = document.createElement('h4');
+            participantsTitle.textContent = 'Participants';
+            participantsSection.appendChild(participantsTitle);
+
+            const participantsList = document.createElement('ul');
+            participantsList.className = 'participants-list';
+
+            if (activity.participants && activity.participants.length > 0) {
+                activity.participants.forEach(email => {
+                    const li = document.createElement('li');
+                    li.textContent = email;
+                    participantsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'No participants yet.';
+                li.style.fontStyle = 'italic';
+                participantsList.appendChild(li);
+            }
+
+            participantsSection.appendChild(participantsList);
+            card.appendChild(participantsSection);
+
+            const signupForm = document.createElement('form');
+            signupForm.className = 'signup-form';
+            signupForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const email = e.target.elements.email.value;
+                await signupForActivity(name, email);
+                e.target.reset();
+            };
+
+            const emailLabel = document.createElement('label');
+            emailLabel.textContent = 'Your Email:';
+            signupForm.appendChild(emailLabel);
+
+            const emailInput = document.createElement('input');
+            emailInput.type = 'email';
+            emailInput.name = 'email';
+            emailInput.required = true;
+            signupForm.appendChild(emailInput);
+
+            const submitButton = document.createElement('button');
+            submitButton.type = 'submit';
+            submitButton.textContent = 'Sign Up';
+            signupForm.appendChild(submitButton);
+
+            card.appendChild(signupForm);
+
+            return card;
+        }
+
+        async function renderActivities() {
+            const activities = await fetchActivities();
+            const container = document.getElementById('activities-container');
+            container.innerHTML = '';
+            Object.entries(activities).forEach(([name, activity]) => {
+                container.appendChild(createActivityCard(name, activity));
+            });
+        }
+
+        async function signupForActivity(activityName, email) {
+            const res = await fetch(`/activities/${encodeURIComponent(activityName)}/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email })
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert(`Error: ${error.detail}`);
+            } else {
+                alert('Signed up successfully!');
+                renderActivities();
+            }
+        }
+
+        renderActivities();
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        #app {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1.5em;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2em;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin: 0;
+            color: #333;
+        }
+
+        p {
+            font-size: 1.1em;
+            color: #666;
+        }
+
+        .activities-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5em;
+        }
+
+        .activity-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 1.5em;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .activity-title {
+            font-size: 1.8em;
+            margin: 0 0 0.5em 0;
+            color: #2d3a4a;
+        }
+
+        .activity-description {
+            font-size: 1em;
+            margin: 0 0 1em 0;
+            color: #333;
+        }
+
+        .activity-schedule {
+            font-size: 0.9em;
+            margin: 0 0 1.5em 0;
+            color: #777;
+        }
+
+        .participants-section {
+            margin-top: 1em;
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 0.75em 1em;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+
+        .participants-section h4 {
+            margin: 0 0 0.5em 0;
+            font-size: 1.05em;
+            color: #2d3a4a;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .participants-list {
+            margin: 0;
+            padding-left: 1.2em;
+            color: #3a3a3a;
+            font-size: 0.97em;
+        }
+
+        .participants-list li {
+            margin-bottom: 0.2em;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .signup-form {
+            display: flex;
+            flex-direction: column;
+            margin-top: 1em;
+        }
+
+        .signup-form label {
+            margin-bottom: 0.5em;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .signup-form input {
+            padding: 0.75em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 1em;
+            font-size: 1em;
+        }
+
+        .signup-form button {
+            padding: 0.75em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        .signup-form button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</body>
+</html>
+"""
